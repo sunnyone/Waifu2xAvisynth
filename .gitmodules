@@ -1,0 +1,3 @@
+[submodule "waifu2x-converter-cpp"]
+	path = waifu2x-converter-cpp
+	url = git@github.com:sunnyone/waifu2x-converter-cpp.git
