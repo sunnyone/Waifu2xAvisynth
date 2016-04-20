@@ -65,10 +65,11 @@ Waifu2xVideoFilter::Waifu2xVideoFilter(PClip child, int nr, int scale, int jobs,
 }
 
 void Waifu2xVideoFilter::Initialize(IScriptEnvironment* env) {
-	if (vi.pixel_type != VideoInfo::CS_YV12 &&
+	if (vi.pixel_type != VideoInfo::CS_Y8 &&
+		vi.pixel_type != VideoInfo::CS_YV12 &&
 		vi.pixel_type != VideoInfo::CS_YV16 &&
 		vi.pixel_type != VideoInfo::CS_YV24) {
-		env->ThrowError("Currently only YV12, YV16 or YV24 are supported.");
+		env->ThrowError("Currently only Y8, YV12, YV16 or YV24 are supported.");
 		return;
 	}
 
@@ -146,7 +147,7 @@ PVideoFrame Waifu2xVideoFilter::GetFrame(int n, IScriptEnvironment* env) {
 
 	PVideoFrame src = child->GetFrame(n, env);
 
-	// Assume YV12, YV16 or YV24 (with chroma, planar)
+	// Assume Y8, YV12, YV16 or YV24 (with chroma, planar)
 	// Process Y at first.
 	cv::Mat yImg(src->GetHeight(PLANAR_Y), src->GetRowSize(PLANAR_Y), CV_8U, (void *)src->GetReadPtr(PLANAR_Y), src->GetPitch(PLANAR_Y));
 	yImg.convertTo(yImg, CV_32F, 1.0 / 255.0);
@@ -182,6 +183,16 @@ PVideoFrame Waifu2xVideoFilter::GetFrame(int n, IScriptEnvironment* env) {
 		OutputDebugStringA("Waifu2x Scaling Finished.");
 	}
 	yImg.convertTo(yImg, CV_8U, 255.0);
+
+	// If Y8, skip processing U, V
+	if (vi.pixel_type == VideoInfo::CS_Y8) {
+		auto dst = env->NewVideoFrame(vi);
+		env->BitBlt(dst->GetWritePtr(PLANAR_Y), dst->GetPitch(PLANAR_Y),
+			yImg.data, yImg.step, yImg.cols, yImg.rows);
+
+		OutputDebugStringA("Waifu2x GetFrame Finished (Y only).");
+		return dst;
+	}
 
 	// Finally process U, V
 	cv::Mat uImg(src->GetHeight(PLANAR_U), src->GetRowSize(PLANAR_U), CV_8U, (void *)src->GetReadPtr(PLANAR_U), src->GetPitch(PLANAR_U));
